@@ -1,35 +1,28 @@
-#include <Arduino.h>
-//#include <SPIFFS.h>
-#include <M5Unified.h>
+#include "Common.hpp"
+#include "Display.hpp"
+#include "Light.hpp"
+#include "Sensor.hpp"
+
+std::shared_ptr<Display> display{};
+std::shared_ptr<Sensor> sensor{};
+std::shared_ptr<Light> light{};
 
 void setup(void)
 {
     auto cfg = M5.config();
     M5.begin(cfg);
-    //M5.setPrimaryDisplayType({m5::board_t::board_M5AtomS3});
 
-    M5.Log.setEnableColor(m5::log_target_serial, true);
+    M5.Log.print("Sabre setup... ");
     M5.Log.setLogLevel(m5::log_target_serial, ESP_LOG_VERBOSE);
+    M5.Log.setEnableColor(m5::log_target_serial, true);
 
-    M5.Display.print("hello, world");
+    display = std::make_shared<Display>(M5.Display);
+    sensor = std::make_shared<Sensor>(M5.Imu);
+    light = std::make_shared<Light>();
 
+    M5.BtnA.setHoldThresh(200);
     M5.delay(1000);
-    M5_LOGI("hello, world");
-}
-
-void draw(LovyanGFX* gfx)
-{
-    int const x{rand() % gfx->width()};
-    int const y{rand() % gfx->height()};
-    int const r{(gfx->width() >> 4) + 2};
-    int const c{rand()};
-
-    gfx->fillRect(x-r, y-r, r*2, r*2, c);
-}
-
-void clear(LovyanGFX* gfx)
-{
-    gfx->clear(gfx->color888(0, 255, 0));
+    M5.Log.println("success!");
 }
 
 void loop(void)
@@ -37,10 +30,36 @@ void loop(void)
     M5.delay(1);
     M5.update();
 
-    if (M5.BtnA.wasClicked())
-    {
-        M5_LOGD("Button click %d", M5.BtnA.getClickCount());
-    }
+    sensor->update();
+    light->update();
 
-    clear(&M5.Display);
+
+    if (M5.BtnA.wasDecideClickCount())
+    {
+        switch (M5.BtnA.getClickCount())
+        {
+            case 1:
+                M5_LOGV("Show light effect");
+                display->clear(rand() % 4 * 63, rand() % 4 * 63, rand() % 4 * 63);
+                break;
+
+            case 2:
+                M5_LOGI("Calibrate: begin...");
+                if (sensor->calibrate())
+                {
+                    M5_LOGI("Calibrate: success");
+                    display->clear(0,128,0);
+                }
+                else
+                {
+                    M5_LOGE("Calibrate: FAIL");
+                    display->clear(128,0,0);
+                }
+                break;
+
+            default:
+                M5_LOGD("Button click %d", M5.BtnA.getClickCount());
+                break;
+        }
+    }
 }
