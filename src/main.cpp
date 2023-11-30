@@ -23,6 +23,9 @@ void setup(void)
     M5.BtnA.setHoldThresh(200);
     M5.delay(1000);
     M5.Log.println("success!");
+
+    Vector3f const v3(1,2,3);
+    M5_LOGI("v3: %f,%f,%f", v3[0], v3[1], v3[2]);
 }
 
 void loop(void)
