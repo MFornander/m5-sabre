@@ -1,10 +1,10 @@
 #include "Common.hpp"
 #include "Display.hpp"
 #include "Light.hpp"
-#include "Sensor.hpp"
+#include "Locator.hpp"
 
 std::shared_ptr<Display> display{};
-std::shared_ptr<Sensor> sensor{};
+std::shared_ptr<Locator> locator{};
 std::shared_ptr<Light> light{};
 
 void setup(void)
@@ -12,17 +12,17 @@ void setup(void)
     auto cfg = M5.config();
     M5.begin(cfg);
 
-    M5.Log.print("Sabre setup... ");
+    M5.Log.println("Sabre setup: begin... ");
     M5.Log.setLogLevel(m5::log_target_serial, ESP_LOG_VERBOSE);
     M5.Log.setEnableColor(m5::log_target_serial, true);
 
     display = std::make_shared<Display>(M5.Display);
-    sensor = std::make_shared<Sensor>(M5.Imu);
+    locator = std::make_shared<Locator>(M5.Imu);
     light = std::make_shared<Light>();
 
     M5.BtnA.setHoldThresh(200);
     M5.delay(1000);
-    M5.Log.println("success!");
+    M5.Log.println("Sabre setup: success");
 
     Vector3f const v3(1,2,3);
     M5_LOGI("v3: %f,%f,%f", v3[0], v3[1], v3[2]);
@@ -33,9 +33,12 @@ void loop(void)
     M5.delay(1);
     M5.update();
 
-    sensor->update();
+    locator->update();
     light->update();
 
+    auto const& pos{locator->getPosition()};
+    M5_LOGI("pos: %f, %f, %f", pos[0], pos[1], pos[2]);
+    display->clear(pos[0], pos[1], pos[2]);
 
     if (M5.BtnA.wasDecideClickCount())
     {
@@ -47,17 +50,8 @@ void loop(void)
                 break;
 
             case 2:
-                M5_LOGI("Calibrate: begin...");
-                if (sensor->calibrate())
-                {
-                    M5_LOGI("Calibrate: success");
-                    display->clear(0,128,0);
-                }
-                else
-                {
-                    M5_LOGE("Calibrate: FAIL");
-                    display->clear(128,0,0);
-                }
+                locator->calibrate();
+                display->clear(0,128,0);
                 break;
 
             default:
